@@ -1,0 +1,62 @@
+# Pillar 4 — observability stack. The deliberate point (per your notes) is that
+# standing this up by hand teaches PromQL, alerting-as-code, and threshold tuning
+# in a way a GUI NMS that auto-discovers everything never would. The setup IS the
+# payoff. Bring it up on the always-on i7 Linux side:  docker compose up -d
+#
+# Tip: pin :latest to specific versions (or digests) before you rely on this, so
+# the stack is reproducible.
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped
+
+  snmp_exporter:
+    image: prom/snmp-exporter:latest
+    container_name: snmp_exporter
+    ports:
+      - "9116:9116"
+    # The image ships a default snmp.yml with the `if_mib` module and a
+    # `public_v2` auth — enough for interface metrics. To use your own community
+    # string or add Cisco CPU (CISCO-PROCESS-MIB), generate snmp.yml with the
+    # snmp_exporter generator and mount it here:
+    # volumes:
+    #   - ./snmp_exporter/snmp.yml:/etc/snmp_exporter/snmp.yml:ro
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      # Set GRAFANA_ADMIN_PASSWORD in a local .env (see .env.example);
+      # falls back to 'admin' only if unset. Never commit a real password.
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

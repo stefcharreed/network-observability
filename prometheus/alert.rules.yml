@@ -1,0 +1,18 @@
+# One real alert, alerting-as-code. The README walks the deliberate
+# false-positive -> tune exercise around this rule; the tuned form below is the
+# end state (the naive form is the starting point you break on purpose).
+groups:
+  - name: network-interfaces
+    rules:
+      - alert: InterfaceDown
+        # Tuned: only alert on interfaces that are operationally down (2) AND
+        # administratively up (1). The naive `ifOperStatus == 2` fires on every
+        # shut/unused port — that's the false positive you tune away. `for: 2m`
+        # then suppresses transient link blips.
+        expr: ifOperStatus == 2 and ifAdminStatus == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Interface down on {{ $labels.instance }}"
+          description: "{{ $labels.ifDescr }} on {{ $labels.instance }} has been down >2m."

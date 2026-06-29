@@ -1,0 +1,41 @@
+# Prometheus scrape + alerting config for the network observability stack.
+# Interface metrics come from snmp_exporter using the bundled `if_mib` module.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/alert.rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # Prometheus scraping itself — a free liveness signal.
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # SNMP scrape of the Cisco gear. Prometheus asks snmp_exporter to poll each
+  # target; the classic snmp_exporter relabel dance rewrites __address__ so the
+  # request goes to the exporter with ?target=<device>&module=if_mib.
+  - job_name: "snmp-cisco"
+    metrics_path: /snmp
+    params:
+      module: [if_mib]
+      auth: [public_v2]      # community string lives in snmp.yml, NOT here
+    static_configs:
+      - targets:
+          - 192.0.2.1        # ISR1  — replace with your real device IPs
+          - 192.0.2.2        # CAT1
+        labels:
+          role: access
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: snmp_exporter:9116

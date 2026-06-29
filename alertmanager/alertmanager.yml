@@ -1,0 +1,12 @@
+# Minimal Alertmanager routing. The receiver has no notifier wired, so the stack
+# starts cleanly and alerts are visible in the Alertmanager UI (:9093). Add an
+# email/Slack/webhook config to `default` when you want to be paged.
+route:
+  receiver: default
+  group_by: ["alertname", "instance"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: default
