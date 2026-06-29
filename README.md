@@ -47,7 +47,7 @@ The goal for the first sitting is small and complete — not a sprawling NMS:
 That's the milestone: **one dashboard with live interface throughput, and one alert
 rule loaded.** Stop there. Resist adding ten more panels.
 
-## The tuning exercise (write this down — it's the interview answer)
+## The tuning exercise
 
 The whole point of `alert.rules.yml` is to *deliberately* get the alert wrong, then
 fix it, and document the before/after. Do it in this order:
