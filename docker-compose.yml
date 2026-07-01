@@ -42,6 +42,21 @@ services:
     #   - ./snmp_exporter/snmp.yml:/etc/snmp_exporter/snmp.yml:ro
     restart: unless-stopped
 
+  node_exporter:
+    image: prom/node-exporter:v1.11.1
+    container_name: node_exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      # scripts/export_config_drift.py writes here (run it after `config-audit
+      # report` -- see README's "Wiring in config-audit drift"). node_exporter's
+      # textfile collector picks up any *.prom file in this directory.
+      - ./textfile_collector:/textfile_collector:ro
+    command:
+      - --collector.textfile.directory=/textfile_collector
+      - --web.listen-address=:9100
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:13.0.3
     container_name: grafana

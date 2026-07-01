@@ -55,6 +55,50 @@
           "legendFormat": "{{instance}}"
         }
       ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Config Drift (config-audit)",
+      "description": "Devices with detected config drift. See README's \"If drift fires\" for what to do next.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "config_audit_devices_drifted",
+          "legendFormat": "drifted devices"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Drifted Devices (config-audit)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 18 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "config_audit_device_drift",
+          "instant": true,
+          "format": "table"
+        }
+      ]
     }
   ]
 }
