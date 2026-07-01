@@ -1,34 +1,10 @@
-CLAUDE.local.md
-.claude/settings.local.json
-
 # Secrets / credentials — NEVER commit these
 .env
-secrets.env
-*.env
-!*.env.example
+!.env.example
 
-# Config backups & golden configs — live in a separate, private repo, never here
-backups/
-configs/
-golden/
-*.cfg
-
-# Tool output
-reports/
-
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.eggs/
-build/
-dist/
-.venv/
-venv/
-env/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# snmp_exporter generated config (real community strings live here) -- see the
+# commented mount block in docker-compose.yml
+snmp_exporter/snmp.yml
 
 # OS / editor
 .DS_Store
@@ -36,6 +12,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Sanitized sample configs used as test fixtures — SAFE to commit (fake data only)
-!tests/fixtures/
-!tests/fixtures/*.cfg
+#Claude
+CLAUDE.local.md
+.claude/settings.local.json
