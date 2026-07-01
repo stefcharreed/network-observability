@@ -143,23 +143,20 @@ itself tells you where to go, not just that something needs attention:
    `config_audit_device_drift` series disappears (in sync again) — no manual
    alert-silencing needed.
 
-### Where this could go further (not built — see network-platform-docs)
+### Where this could go further
 
-The natural next step — "the dashboard says *why* it's down, not just *that* it
-is" (e.g. correlating an `InterfaceDown` alert with a recent config-audit drift on
-the same device into a plain-English summary) — is real, but it's an LLM
-reasoning task, not something to hand-code into Grafana/Prometheus. That's
-**Platform Stage 3**, already scoped in the private `network-troubleshooting-agent`
-repo: an MCP client with both `config-audit`'s MCP server and a troubleshooting-
-knowledge MCP server registered, correlating alerts + drift + domain knowledge
-into a hypothesis. It's gated on CCNP skill-catalog coverage that doesn't exist
-yet (see `network-platform-docs/DECISIONS.md` D20/D21) — not something to build
-here. Auto-remediation (a tool pushing a fix to the device based on that
-hypothesis) is a separate, later, explicitly human-gated step
-(`network-platform-docs/roadmap.md` item 9, "Closed-loop remediation" —
-`DEFERRED`): propose → Batfish-validate → human approve → push → verify →
-rollback. The IP-in-the-alert piece above is the whole "surface it for a human to
-go fix by hand" step done today, with none of that machinery.
+The natural next step — the dashboard explaining *why* something's down, not
+just *that* it is, by correlating an `InterfaceDown` alert with a recent
+config-audit drift into a plain-English root cause — is real, but it's an LLM
+reasoning task, not something to hand-code into Grafana/Prometheus. It's
+already the next stage of this platform, in progress in a private repo, gated
+on some knowledge-base groundwork that isn't done yet. Auto-remediation (a
+tool applying a recommended fix) is a separate, later step, and always stays
+human-gated — this pillar doesn't do that directly. What's here today is the
+piece that's actually available without any of that: the drifted device's
+management IP directly in the alert, so a human can go fix it by hand.
+[Message me on LinkedIn](https://www.linkedin.com/in/stefan-c-reed/) if you
+want to know more about where this is headed.
 
 ## Status
 
