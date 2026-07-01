@@ -102,27 +102,32 @@ throughput and CPU — so it shows up on this dashboard too, not just in
 `netmiko-config-audit`'s own terminal output.
 
 `scripts/export_config_drift.py` reads the latest `run-*.json` report
-`netmiko-config-audit`'s `report` command writes, and converts it into Prometheus
+`netmiko-config-audit`'s `report` command writes, plus its `config.yaml` device
+list (for each drifted device's management IP), and converts both into Prometheus
 textfile-collector format for `node_exporter` to pick up. Run it right after
-`config-audit report` in the same cron job:
+`config-audit report` in the same cron job, using config-audit's own venv
+interpreter so PyYAML is already available:
 
 ```cron
 0 2 * * *  cd /opt/netmiko-config-audit && .venv/bin/config-audit report \
-  && python3 /opt/network-observability/scripts/export_config_drift.py \
+  && .venv/bin/python3 /opt/network-observability/scripts/export_config_drift.py \
        /path/to/netmiko-config-private/reports \
+       /opt/netmiko-config-audit/config/config.yaml \
        /opt/network-observability/textfile_collector
 ```
 
 This is a **data-contract** dependency on config-audit's report JSON shape
-(`devices_total`/`devices_drifted`/etc.), not a code or package dependency — this
-repo still needs no config-audit install to run standalone. If that JSON schema
-ever changes, `export_config_drift.py` needs updating to match.
+(`devices_total`/`devices_drifted`/etc.) and its `config.yaml` device list
+(`name`/`host`), not a code or package dependency — this repo still needs no
+config-audit install to run standalone. If either shape ever changes,
+`export_config_drift.py` needs updating to match.
 
 ### If drift fires
 
-The `ConfigDrift` alert and the dashboard's "Config Drift" panel only tell you
-*that* something changed — same as `netmiko-config-audit diff`'s own drift-vs-no-
-baseline distinction, this is a signal to investigate, not an outage by itself:
+The `ConfigDrift` alert and the dashboard's "Drifted Devices" table don't just say
+*that* something changed — each drifted device is labeled with its management IP
+(`config_audit_device_drift{device="ISR1", ip="172.31.16.52"}`), so the alert
+itself tells you where to go, not just that something needs attention:
 
 1. **See what changed.** Run `config-audit diff` — it shows the exact unified diff
    for every drifted device, not just that one exists.
@@ -130,12 +135,31 @@ baseline distinction, this is a signal to investigate, not an outage by itself:
    unexpected?
 3. **Authorized:** run `config-audit promote <device>` — reviews the diff again,
    requires your explicit confirmation, and accepts the new state as the baseline.
-4. **Unauthorized:** revert the device's config by hand (this platform doesn't push
-   config changes yet — closed-loop remediation is a deferred, separate pillar, see
-   `network-platform-docs`), then re-run `config-audit backup` and confirm `diff`
-   shows clean.
-5. The alert clears on its own next cron cycle once `config_audit_devices_drifted`
-   goes back to 0 — no manual alert-silencing needed.
+4. **Unauthorized:** SSH to the IP shown in the alert and revert the device's
+   config by hand (this platform doesn't push config changes yet — closed-loop
+   remediation is a deferred, separate pillar, see `network-platform-docs`), then
+   re-run `config-audit backup` and confirm `diff` shows clean.
+5. The alert clears on its own next cron cycle once the device's
+   `config_audit_device_drift` series disappears (in sync again) — no manual
+   alert-silencing needed.
+
+### Where this could go further (not built — see network-platform-docs)
+
+The natural next step — "the dashboard says *why* it's down, not just *that* it
+is" (e.g. correlating an `InterfaceDown` alert with a recent config-audit drift on
+the same device into a plain-English summary) — is real, but it's an LLM
+reasoning task, not something to hand-code into Grafana/Prometheus. That's
+**Platform Stage 3**, already scoped in the private `network-troubleshooting-agent`
+repo: an MCP client with both `config-audit`'s MCP server and a troubleshooting-
+knowledge MCP server registered, correlating alerts + drift + domain knowledge
+into a hypothesis. It's gated on CCNP skill-catalog coverage that doesn't exist
+yet (see `network-platform-docs/DECISIONS.md` D20/D21) — not something to build
+here. Auto-remediation (a tool pushing a fix to the device based on that
+hypothesis) is a separate, later, explicitly human-gated step
+(`network-platform-docs/roadmap.md` item 9, "Closed-loop remediation" —
+`DEFERRED`): propose → Batfish-validate → human approve → push → verify →
+rollback. The IP-in-the-alert piece above is the whole "surface it for a human to
+go fix by hand" step done today, with none of that machinery.
 
 ## Status
 
