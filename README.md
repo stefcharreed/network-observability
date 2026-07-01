@@ -95,6 +95,8 @@ the target list is hand-maintained, and that's fine for two devices.
 
 ## Status
 
-🚧 Scaffold. All configs are valid (YAML/JSON parse-checked) but unverified against a
-running Docker host and live SNMP — that's the weekend-one validation above. Image
-tags are `:latest`; pin them before you rely on the stack.
+🚧 Image tags pinned to specific versions (prometheus v3.13.0, alertmanager v0.33.0,
+snmp-exporter v0.30.1, grafana 13.0.3). Verified via `docker compose up`: all four
+services pull and start cleanly, all report healthy, and Prometheus correctly relays
+through snmp_exporter's relabel dance. Still unverified against live SNMP — that's the
+weekend-one milestone above, waiting on real device IPs and a working community string.
