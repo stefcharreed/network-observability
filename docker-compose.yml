@@ -3,11 +3,11 @@
 # in a way a GUI NMS that auto-discovers everything never would. The setup IS the
 # payoff. Bring it up on the always-on i7 Linux side:  docker compose up -d
 #
-# Tip: pin :latest to specific versions (or digests) before you rely on this, so
-# the stack is reproducible.
+# Image tags pinned to specific versions (checked 2026-07-01) instead of :latest,
+# so the stack is reproducible instead of silently drifting on a future pull.
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.13.0
     container_name: prometheus
     ports:
       - "9090:9090"
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   alertmanager:
-    image: prom/alertmanager:latest
+    image: prom/alertmanager:v0.33.0
     container_name: alertmanager
     ports:
       - "9093:9093"
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   snmp_exporter:
-    image: prom/snmp-exporter:latest
+    image: prom/snmp-exporter:v0.30.1
     container_name: snmp_exporter
     ports:
       - "9116:9116"
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.0.3
     container_name: grafana
     ports:
       - "3000:3000"
