@@ -45,25 +45,33 @@ jobs:
         # actually completed a scrape of it yet -- scrape_interval is 30s, so
         # right after startup the target can still be "unknown" for a bit.
         run: |
+          # Every branch below prints "WAIT: ..." and exits 0, deliberately --
+          # this shell runs with `set -e` (GitHub Actions default), and a
+          # python `sys.exit(1)` inside a `result=$(...)` assignment aborts the
+          # whole step instantly, before the loop ever gets a chance to retry
+          # (confirmed live: that's exactly what the previous version did).
+          # Uniform retry-on-anything-but-OK is also simpler than trying to
+          # tell "permanent failure" apart from "still starting up".
           for i in $(seq 1 12); do
             result=$(curl -s http://localhost:9090/api/v1/targets | python3 -c "
           import json, sys
-          data = json.load(sys.stdin)
-          targets = data['data']['activeTargets']
+          try:
+              targets = json.load(sys.stdin)['data']['activeTargets']
+          except Exception:
+              print('WAIT: targets API not ready yet'); sys.exit(0)
           jobs = {t['labels'].get('job') for t in targets}
           if 'snmp-cisco' not in jobs:
-              print('FAIL: snmp-cisco job missing'); sys.exit(1)
+              print('WAIT: snmp-cisco job not registered yet'); sys.exit(0)
           node = [t for t in targets if t['labels'].get('job') == 'node_exporter']
           if not node or node[0]['health'] != 'up':
-              print('WAIT: node_exporter target not up yet'); sys.exit(1)
+              print('WAIT: node_exporter target not up yet'); sys.exit(0)
           print('OK: snmp-cisco job registered, node_exporter target up')
           ")
             echo "$result"
             [ "${result:0:2}" = "OK" ] && exit 0
-            [ "${result:0:4}" = "FAIL" ] && exit 1
             sleep 5
           done
-          echo "Timed out waiting for node_exporter target to go up"
+          echo "Timed out waiting for target wiring to be ready"
           exit 1
 
       - name: Tear down
