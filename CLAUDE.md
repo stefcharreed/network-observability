@@ -18,7 +18,15 @@ as code. **Standalone** — no dependency on the config-audit code.
 - **Never commit secrets.** Grafana admin password comes from a gitignored `.env`
   (`GRAFANA_ADMIN_PASSWORD`); `.env.example` shows the shape. Never a literal password
   in `docker-compose.yml`.
-- Pin image `:latest` tags to specific versions before relying on the stack.
+- **Image tags are pinned to specific versions** (checked 2026-07-01: prometheus
+  v3.13.0, alertmanager v0.33.0, snmp-exporter v0.30.1, grafana 13.0.3), not `:latest`.
+  Re-verify and re-pin deliberately if you ever bump these — don't drift back to
+  `:latest`.
+- **CI (`.github/workflows/validate.yml`) brings the whole stack up on every push/PR**
+  and checks all four services report healthy, plus that the `snmp-cisco` job is
+  registered in Prometheus (it's expected to be `down`/`unknown` in CI — no real
+  device reachable from a GitHub runner — this only proves the wiring, not live SNMP).
+  Live-hardware validation (a real target going green) is still a manual, local step.
 - The deliverable that matters is **one tuned alert** — the documented false-positive →
   fix (naive `ifOperStatus == 2` → add `and ifAdminStatus == 1` + `for: 2m`) — not a
   wall of dashboards. The tuning write-up IS the interview answer.
