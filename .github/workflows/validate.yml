@@ -24,20 +24,33 @@ jobs:
             am=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9093/-/healthy || echo 000)
             graf=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || echo 000)
             snmp=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9116/ || echo 000)
-            if [ "$prom" = "200" ] && [ "$am" = "200" ] && [ "$graf" = "200" ] && [ "$snmp" = "200" ]; then
+            node=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9100/metrics || echo 000)
+            if [ "$prom" = "200" ] && [ "$am" = "200" ] && [ "$graf" = "200" ] && [ "$snmp" = "200" ] && [ "$node" = "200" ]; then
               echo "All services healthy after ${i}0s"
               exit 0
             fi
             sleep 10
           done
-          echo "Timed out waiting for services (prometheus=$prom alertmanager=$am grafana=$graf snmp_exporter=$snmp)"
+          echo "Timed out waiting for services (prometheus=$prom alertmanager=$am grafana=$graf snmp_exporter=$snmp node_exporter=$node)"
           docker compose logs
           exit 1
 
-      - name: Confirm snmp_exporter relabel wiring (target job present, even if down)
+      - name: Confirm target wiring (snmp-cisco registered, node_exporter up)
+        # Parsed with python, not grep -- "health" sits after several nested `}`
+        # closes relative to "job" in Prometheus's JSON, so a brace-bounded grep
+        # can't span the two fields reliably.
         run: |
-          curl -s http://localhost:9090/api/v1/targets | grep -q '"job":"snmp-cisco"' \
-            && echo "snmp-cisco job registered" || (echo "snmp-cisco job missing" && exit 1)
+          curl -s http://localhost:9090/api/v1/targets | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          targets = data['data']['activeTargets']
+          jobs = {t['labels'].get('job') for t in targets}
+          assert 'snmp-cisco' in jobs, 'snmp-cisco job missing'
+          print('snmp-cisco job registered')
+          node = [t for t in targets if t['labels'].get('job') == 'node_exporter']
+          assert node and node[0]['health'] == 'up', 'node_exporter target not up'
+          print('node_exporter target up')
+          "
 
       - name: Tear down
         if: always()

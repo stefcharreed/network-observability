@@ -95,6 +95,48 @@ This stack shares the platform's single source of device truth: the same
 target list, so you add a device once. That generator is a small follow-up — for now
 the target list is hand-maintained, and that's fine for two devices.
 
+## Wiring in config-audit drift
+
+Config drift is itself "actual behavior over time" — the same charter as interface
+throughput and CPU — so it shows up on this dashboard too, not just in
+`netmiko-config-audit`'s own terminal output.
+
+`scripts/export_config_drift.py` reads the latest `run-*.json` report
+`netmiko-config-audit`'s `report` command writes, and converts it into Prometheus
+textfile-collector format for `node_exporter` to pick up. Run it right after
+`config-audit report` in the same cron job:
+
+```cron
+0 2 * * *  cd /opt/netmiko-config-audit && .venv/bin/config-audit report \
+  && python3 /opt/network-observability/scripts/export_config_drift.py \
+       /path/to/netmiko-config-private/reports \
+       /opt/network-observability/textfile_collector
+```
+
+This is a **data-contract** dependency on config-audit's report JSON shape
+(`devices_total`/`devices_drifted`/etc.), not a code or package dependency — this
+repo still needs no config-audit install to run standalone. If that JSON schema
+ever changes, `export_config_drift.py` needs updating to match.
+
+### If drift fires
+
+The `ConfigDrift` alert and the dashboard's "Config Drift" panel only tell you
+*that* something changed — same as `netmiko-config-audit diff`'s own drift-vs-no-
+baseline distinction, this is a signal to investigate, not an outage by itself:
+
+1. **See what changed.** Run `config-audit diff` — it shows the exact unified diff
+   for every drifted device, not just that one exists.
+2. **Decide if it was authorized.** Was this a planned/approved change, or
+   unexpected?
+3. **Authorized:** run `config-audit promote <device>` — reviews the diff again,
+   requires your explicit confirmation, and accepts the new state as the baseline.
+4. **Unauthorized:** revert the device's config by hand (this platform doesn't push
+   config changes yet — closed-loop remediation is a deferred, separate pillar, see
+   `network-platform-docs`), then re-run `config-audit backup` and confirm `diff`
+   shows clean.
+5. The alert clears on its own next cron cycle once `config_audit_devices_drifted`
+   goes back to 0 — no manual alert-silencing needed.
+
 ## Status
 
 🚧 Image tags pinned to specific versions (prometheus v3.13.0, alertmanager v0.33.0,
