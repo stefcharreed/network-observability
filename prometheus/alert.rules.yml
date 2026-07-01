@@ -20,17 +20,26 @@ groups:
   - name: config-audit
     rules:
       - alert: ConfigDrift
-        # No `for:` debounce -- unlike a flapping interface, a drift finding from
-        # config-audit is already a discrete, deliberate result (one diff, run
-        # once), not a noisy raw counter. There's nothing to debounce.
-        expr: config_audit_devices_drifted > 0
+        # Fires once PER drifted device (config_audit_device_drift only has a
+        # series per drifted device -- see export_config_drift.py), not once
+        # for the aggregate count. That's deliberate: it puts the device name
+        # and its management IP directly in the alert via $labels, instead of
+        # a bare count you'd still have to go cross-reference by hand.
+        #
+        # No `for:` debounce -- unlike a flapping interface, a drift finding
+        # from config-audit is already a discrete, deliberate result (one
+        # diff, run once), not a noisy raw counter. There's nothing to
+        # debounce.
+        expr: config_audit_device_drift == 1
         labels:
           severity: warning
         annotations:
-          summary: "Config drift detected on {{ $value }} device(s)"
+          summary: "Config drift on {{ $labels.device }} ({{ $labels.ip }})"
           description: >-
-            Run `config-audit diff` to see exactly what changed. If the change was
-            authorized, run `config-audit promote <device>` to accept it as the new
-            baseline. If it wasn't, revert the device's config by hand to match the
-            baseline, then re-run `config-audit backup` and confirm `diff` shows
-            clean. See README's "If drift fires" section.
+            {{ $labels.device }} ({{ $labels.ip }}) has detected config drift.
+            Run `config-audit diff` to see exactly what changed. If the change
+            was authorized, run `config-audit promote {{ $labels.device }}` to
+            accept it as the new baseline. If it wasn't, SSH to
+            {{ $labels.ip }} and revert the config by hand to match the
+            baseline, then re-run `config-audit backup` and confirm `diff`
+            shows clean. See README's "If drift fires" section.
