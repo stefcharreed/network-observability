@@ -1,0 +1,44 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose config
+        run: docker compose config --quiet
+
+      - name: Bring up the stack
+        run: docker compose up -d
+
+      - name: Wait for services to report healthy
+        run: |
+          for i in $(seq 1 30); do
+            prom=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9090/-/healthy || echo 000)
+            am=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9093/-/healthy || echo 000)
+            graf=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || echo 000)
+            snmp=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9116/ || echo 000)
+            if [ "$prom" = "200" ] && [ "$am" = "200" ] && [ "$graf" = "200" ] && [ "$snmp" = "200" ]; then
+              echo "All services healthy after ${i}0s"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for services (prometheus=$prom alertmanager=$am grafana=$graf snmp_exporter=$snmp)"
+          docker compose logs
+          exit 1
+
+      - name: Confirm snmp_exporter relabel wiring (target job present, even if down)
+        run: |
+          curl -s http://localhost:9090/api/v1/targets | grep -q '"job":"snmp-cisco"' \
+            && echo "snmp-cisco job registered" || (echo "snmp-cisco job missing" && exit 1)
+
+      - name: Tear down
+        if: always()
+        run: docker compose down

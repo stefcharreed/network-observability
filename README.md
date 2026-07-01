@@ -1,5 +1,7 @@
 # Observability stack (Pillar 4)
 
+> [![validate](https://github.com/stefcharreed/network-observability/actions/workflows/validate.yml/badge.svg)](https://github.com/stefcharreed/network-observability/actions/workflows/validate.yml)
+
 Prometheus + Alertmanager + snmp_exporter + Grafana, as code, for monitoring the
 Cisco gear. This is **Pillar 4** of the platform — the "actual behavior over time"
 layer that sits alongside Project 1's "intended vs actual config" layer.
