@@ -1,0 +1,13 @@
+# Weekly dependency-update PRs (SECURITY_ARCHITECTURE R7 in the platform docs).
+# Image tags in docker-compose.yml are pinned deliberately (see compose header) —
+# Dependabot PRs are the prompt to re-pin consciously, not auto-merge.
+version: 2
+updates:
+  - package-ecosystem: docker-compose
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

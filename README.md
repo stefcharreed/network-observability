@@ -48,9 +48,11 @@ The goal for the first sitting is small and complete — not a sprawling NMS:
    `public_v2` auth works out of the box for interface counters; if your community
    isn't `public`, generate an `snmp.yml` and mount it (see the commented block in
    `docker-compose.yml`).
-4. Open Prometheus at `http://<host>:9090` → Status → Targets. The `snmp-cisco` job
+4. Open Prometheus at `http://localhost:9090` → Status → Targets. The `snmp-cisco` job
    should go green. If not, the Targets page tells you exactly why (auth, timeout,
-   unreachable).
+   unreachable). (Prometheus/Alertmanager/exporters bind to the docker host's
+   localhost only — they have no auth of their own. From another machine, tunnel:
+   `ssh -L 9090:localhost:9090 <host>`. Grafana is the one LAN-exposed, auth'd door.)
 5. Open Grafana at `http://<host>:3000` (admin / admin, change it). The **Network
    Overview** dashboard is auto-provisioned: interface throughput in/out should be
    live. (The CPU panel stays "No data" until you add the Cisco MIB module — see
