@@ -1,6 +1,7 @@
-# Minimal Alertmanager routing. The receiver has no notifier wired, so the stack
-# starts cleanly and alerts are visible in the Alertmanager UI (:9093). Add an
-# email/Slack/webhook config to `default` when you want to be paged.
+# Alertmanager routing. Both notifiers below are file-based secrets (url_file /
+# auth_password_file), never a literal webhook URL or password in this file --
+# see alertmanager/secrets/ (gitignored) and README's "Notifications" section.
+# Uncomment one or both receivers to enable them; both can run at once.
 route:
   receiver: default
   group_by: ["alertname", "instance"]
@@ -10,3 +11,17 @@ route:
 
 receivers:
   - name: default
+    # --- Generic webhook (ntfy, Discord, your own receiver, etc.) ---
+    # webhook_configs:
+    #   - url_file: /etc/alertmanager/secrets/webhook_url
+    #     send_resolved: true
+
+    # --- Email via SMTP ---
+    # email_configs:
+    #   - to: you@example.com
+    #     from: alertmanager@example.com
+    #     smarthost: smtp.example.com:587
+    #     auth_username: you@example.com
+    #     auth_password_file: /etc/alertmanager/secrets/smtp_password
+    #     require_tls: true
+    #     send_resolved: true
