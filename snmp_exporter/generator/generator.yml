@@ -1,0 +1,35 @@
+auths:
+  public_v2:
+    version: 2
+    community: public
+
+modules:
+  # Matches the if_mib module bundled in snmp_exporter's default snmp.yml,
+  # verbatim from the upstream generator.yml (prometheus/snmp_exporter v0.30.1)
+  # -- kept here so a custom snmp.yml doesn't lose interface metrics.
+  if_mib:
+    walk:
+      - "IF-MIB::interfaces"
+      - "IF-MIB::ifXTable"
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: "IF-MIB::ifAlias"
+      - source_indexes: [ifIndex]
+        lookup: "IF-MIB::ifDescr"
+      - source_indexes: [ifIndex]
+        lookup: "IF-MIB::ifName"
+    overrides:
+      ifAlias:
+        ignore: true
+      ifDescr:
+        ignore: true
+      ifName:
+        ignore: true
+      ifType:
+        type: EnumAsInfo
+
+  # New: Cisco CPU utilization, not in the default snmp.yml. Lights up the
+  # dashboard's "Device CPU (%)" panel, which already queries this metric name.
+  cisco_cpu:
+    walk:
+      - CISCO-PROCESS-MIB::cpmCPUTotal5minRev

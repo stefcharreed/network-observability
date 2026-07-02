@@ -27,6 +27,9 @@ services:
       - "9093:9093"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Uncomment to enable a notifier (see alertmanager.yml + README
+      # "Notifications"). Files in alertmanager/secrets/ are gitignored.
+      # - ./alertmanager/secrets:/etc/alertmanager/secrets:ro
     restart: unless-stopped
 
   snmp_exporter:
@@ -36,8 +39,10 @@ services:
       - "9116:9116"
     # The image ships a default snmp.yml with the `if_mib` module and a
     # `public_v2` auth — enough for interface metrics. To use your own community
-    # string or add Cisco CPU (CISCO-PROCESS-MIB), generate snmp.yml with the
-    # snmp_exporter generator and mount it here:
+    # string or add Cisco CPU (CISCO-PROCESS-MIB), snmp_exporter/generator/
+    # already has generator.yml + fetch-mibs.sh ready to build one -- see
+    # README's "Adding CPU". Once snmp_exporter/snmp.yml exists, mount it here
+    # AND add cisco_cpu to prometheus.yml's module list:
     # volumes:
     #   - ./snmp_exporter/snmp.yml:/etc/snmp_exporter/snmp.yml:ro
     restart: unless-stopped

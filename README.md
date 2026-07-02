@@ -16,15 +16,25 @@ layer that sits alongside Project 1's "intended vs actual config" layer.
 
 ```
 observability/
-├── docker-compose.yml                     # the 4-service stack
+├── docker-compose.yml                     # the 5-service stack
 ├── prometheus/
 │   ├── prometheus.yml                     # scrape config (snmp_exporter relabel dance)
-│   └── alert.rules.yml                    # one alert: InterfaceDown
+│   └── alert.rules.yml                    # InterfaceDown + ConfigDrift
 ├── alertmanager/
-│   └── alertmanager.yml                   # routing (no notifier wired yet)
+│   ├── alertmanager.yml                   # routing + two optional notifiers (webhook, email)
+│   └── secrets/                           # gitignored: webhook_url / smtp_password files
+├── snmp_exporter/
+│   ├── snmp.yml                           # gitignored: generated, real community string
+│   └── generator/
+│       ├── generator.yml                  # if_mib + cisco_cpu module definitions
+│       ├── fetch-mibs.sh                  # downloads the MIBs generator.yml needs
+│       └── mibs/                          # gitignored: fetched MIB source files
+├── scripts/
+│   └── export_config_drift.py             # config-audit report JSON -> Prometheus textfile
+├── textfile_collector/                    # node_exporter reads *.prom files here
 └── grafana/
     ├── provisioning/                      # auto-wires the datasource + dashboards
-    └── dashboards/network-overview.json   # interface throughput in/out + CPU
+    └── dashboards/network-overview.json   # interface throughput in/out, CPU, config drift
 ```
 
 ## The weekend-one milestone
@@ -79,14 +89,83 @@ The committed `alert.rules.yml` is already at the **end state** (step 2 + 3), so
 repo shows the good version; the exercise is about understanding *why* it's the good
 version by breaking it first.
 
-## Adding CPU (the documented next step)
+## Notifications
+
+`alertmanager.yml` ships with two notifiers defined but commented out — a generic
+webhook and email via SMTP. Both are wired as **file-based secrets** (`url_file`,
+`auth_password_file`), so the committed config never contains a literal webhook URL
+or password; only a path to a file under `alertmanager/secrets/` (gitignored).
+Alertmanager re-reads these files on each send, so rotating a secret is just
+overwriting the file — no restart needed.
+
+To enable one (or both):
+
+1. `mkdir -p alertmanager/secrets` (already gitignored via `alertmanager/secrets/*`).
+2. Generic webhook: write the endpoint URL to `alertmanager/secrets/webhook_url`,
+   uncomment the `webhook_configs` block in `alertmanager.yml`.
+   Email: write the SMTP password to `alertmanager/secrets/smtp_password`, uncomment
+   the `email_configs` block and fill in `to`/`from`/`smarthost`/`auth_username`.
+3. Uncomment the `alertmanager/secrets` volume mount in `docker-compose.yml`'s
+   `alertmanager` service.
+4. `docker compose up -d alertmanager` (or restart the whole stack).
+
+**How this was validated without real gear or real secrets:** the webhook path was
+tested end-to-end locally — a throwaway Alertmanager container plus a local HTTP
+listener on the same Docker network (no external destination), fed a synthetic
+`ConfigDrift` alert via `POST /api/v2/alerts` using RFC 5737 test values
+(`device="TESTDEV"`, `ip="192.0.2.1"`), matching exactly the label shape
+`export_config_drift.py` produces from a real drift finding. Alertmanager's own log
+confirmed `"Notify success"` after retrying the webhook. Email isn't verifiable the
+same way (it needs a real mailbox + SMTP relay), so that path is config-checked
+(`docker compose config --quiet` / Alertmanager's own startup validation) but not
+delivery-tested — worth doing once real SMTP credentials exist.
+
+## Adding CPU
 
 Interface metrics come from the standard `if_mib` module. Cisco CPU lives in
 `CISCO-PROCESS-MIB` (`cpmCPUTotal5minRev`), which the bundled module doesn't include.
-To light up the CPU panel: install the snmp_exporter generator, add a Cisco module
-that walks that OID, regenerate `snmp.yml`, mount it (compose comment block), and add
-`cisco_cpu` to the scrape `module:` list. The dashboard panel already queries
-`cpmCPUTotal5minRev`, so it populates the moment that metric exists.
+The dashboard panel already queries `cpmCPUTotal5minRev`, so it populates the moment
+that metric exists — this section is what makes it exist.
+
+`snmp_exporter/generator/` has everything needed to build a custom `snmp.yml`:
+
+- `generator.yml` — two modules: `if_mib` (copied verbatim from snmp_exporter's own
+  upstream default, so interface metrics aren't lost) and `cisco_cpu` (new, walks
+  `CISCO-PROCESS-MIB::cpmCPUTotal5minRev`).
+- `fetch-mibs.sh` — downloads the MIB files both modules need (Cisco's own
+  [cisco-mibs](https://github.com/cisco/cisco-mibs) repo, pinned to a specific commit,
+  plus the standard IETF/net-snmp base MIBs). MIBs aren't vendored into the repo
+  (large, third-party, easy to re-fetch) — `snmp_exporter/generator/mibs/` is
+  gitignored.
+
+To generate and wire it in:
+
+```bash
+cd snmp_exporter/generator
+./fetch-mibs.sh
+docker run --rm -v "$(pwd)":/opt prom/snmp-generator:v0.30.1 generate
+mv snmp.yml ../snmp.yml
+```
+
+Then, if your community string isn't `public`, edit the `auths.public_v2.community`
+in `generator.yml` before regenerating (never commit a real community string —
+`snmp_exporter/snmp.yml` is gitignored for exactly that reason). Finally:
+
+1. Uncomment the `snmp.yml` volume mount in `docker-compose.yml`'s `snmp_exporter`
+   service.
+2. Add `cisco_cpu` to `prometheus.yml`'s `snmp-cisco` job: `module: [if_mib, cisco_cpu]`.
+3. `docker compose up -d`.
+
+**What's verified vs. not:** the generator run above is real — it downloaded the
+actual MIBs, parsed them, and produced a working `snmp.yml` whose `if_mib` module was
+diffed against snmp_exporter's own bundled default and confirmed equivalent (same 39
+metrics/OIDs; the only difference is a handful of newer IANA interface-type enum
+values, since `fetch-mibs.sh` pulls the current IANA list rather than net-snmp's
+older bundled copy — additive, not a regression). The `cisco_cpu` module correctly
+resolves to OID `1.3.6.1.4.1.9.9.109.1.1.1.1.8` as a gauge indexed by
+`cpmCPUTotalIndex`. What's **not** verified: an actual value coming back from real
+Cisco gear — that still needs live hardware and is part of the weekend-one milestone
+above, not something to fake with a fixture.
 
 ## Platform seam
 
