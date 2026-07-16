@@ -54,7 +54,7 @@ services:
     restart: unless-stopped
 
   node_exporter:
-    image: prom/node-exporter:v1.11.1
+    image: prom/node-exporter:v1.12.1
     container_name: node_exporter
     ports:
       - "127.0.0.1:9100:9100"
