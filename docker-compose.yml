@@ -13,7 +13,7 @@
 # the compose network and is unaffected.
 services:
   prometheus:
-    image: prom/prometheus:v3.13.0
+    image: prom/prometheus:v3.13.2
     container_name: prometheus
     ports:
       - "127.0.0.1:9090:9090"
