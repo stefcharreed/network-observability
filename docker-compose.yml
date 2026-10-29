@@ -39,7 +39,7 @@ services:
     restart: unless-stopped
 
   snmp_exporter:
-    image: prom/snmp-exporter:v0.30.1
+    image: prom/snmp-exporter:v0.31.0
     container_name: snmp_exporter
     ports:
       - "127.0.0.1:9116:9116"
